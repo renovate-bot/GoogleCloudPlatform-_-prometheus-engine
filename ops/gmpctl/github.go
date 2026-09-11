@@ -16,13 +16,37 @@ package main
 
 import (
 	"encoding/json"
+	"fmt"
+	"net/url"
 )
 
 type prInfo struct {
 	URL string `json:"url"`
 }
 
-func mustEnsurePullRequest(dir, baseBranch, headBranch, title, body string) {
+func (p Project) mustEnsurePullRequest(dir, baseBranch, headBranch, title, body string) {
+	err := ensurePullRequestGhCommand(dir, baseBranch, headBranch, title, body)
+	if err == nil {
+		return
+	}
+	logf("failed to use `gh` to create a pull request: %v", err)
+	// https://docs.github.com/en/pull-requests/reference/using-query-parameters-to-create-a-pull-request
+	query := url.Values{
+		"title":      {title},
+		"body":       {body},
+		"quick_pull": {"1"},
+	}
+	u := fmt.Sprintf(
+		"https://github.com/%s/%s/compare/%s...%s?%s",
+		p.Organization(), p.RepoName(),
+		baseBranch,
+		headBranch,
+		query.Encode(),
+	)
+	logf("Create a pull request manually at %s", u)
+}
+
+func ensurePullRequestGhCommand(dir, baseBranch, headBranch, title, body string) error {
 	logf("Checking for existing pull request for %v...", headBranch)
 
 	// gh pr list --head <head> --base <base> --state open --json url
@@ -35,17 +59,17 @@ func mustEnsurePullRequest(dir, baseBranch, headBranch, title, body string) {
 		"--json", "url",
 	)
 	if err != nil {
-		panicf("failed to check existing PR: %v", err)
+		return fmt.Errorf("failed to check existing PR: %w", err)
 	}
 
 	var prs []prInfo
 	if err := json.Unmarshal([]byte(out), &prs); err != nil {
-		panicf("failed to parse gh output: %v, output: %q", err, out)
+		return fmt.Errorf("failed to parse gh output: %w, output: %q", err, out)
 	}
 
 	if len(prs) > 0 {
 		logf("Pull request already exists: %v", prs[0].URL)
-		return
+		return nil
 	}
 
 	logf("Creating pull request from %v to %v...", headBranch, baseBranch)
@@ -60,7 +84,8 @@ func mustEnsurePullRequest(dir, baseBranch, headBranch, title, body string) {
 		"--head", headBranch,
 	)
 	if err != nil {
-		panicf("failed to create pull request: %v", err)
+		return fmt.Errorf("failed to create pull request: %w", err)
 	}
 	logf("Pull request created: %v", prURL)
+	return nil
 }

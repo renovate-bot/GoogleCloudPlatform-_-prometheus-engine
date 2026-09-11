@@ -25,19 +25,16 @@ import (
 
 var (
 	Prometheus = Project{
-		Name:      "prometheus",
-		remoteURL: "git@github.com:GoogleCloudPlatform/prometheus.git",
-		BranchRE:  regexp.MustCompile(`^release-[23]\.[0-9]+\.[0-9]+-gmp$`),
+		Name:     "prometheus",
+		BranchRE: regexp.MustCompile(`^release-[23]\.[0-9]+\.[0-9]+-gmp$`),
 	}
 	Alertmanager = Project{
-		Name:      "alertmanager",
-		remoteURL: "git@github.com:GoogleCloudPlatform/alertmanager.git",
-		BranchRE:  regexp.MustCompile(`^release-0\.[0-9]+\.[0-9]+-gmp$`),
+		Name:     "alertmanager",
+		BranchRE: regexp.MustCompile(`^release-0\.[0-9]+\.[0-9]+-gmp$`),
 	}
 	PrometheusEngine = Project{
-		Name:      "prometheus-engine",
-		remoteURL: "git@github.com:GoogleCloudPlatform/prometheus-engine.git",
-		BranchRE:  regexp.MustCompile(`^release/0\.[0-9]+$`),
+		Name:     "prometheus-engine",
+		BranchRE: regexp.MustCompile(`^release/0\.[0-9]+$`),
 	}
 
 	// ReleaseBranches contains hardcoded list of active branches. We could pull it out from somewhere.
@@ -68,9 +65,8 @@ func projectFromBranch(branch string) (Project, bool) {
 }
 
 type Project struct {
-	Name      string
-	remoteURL string
-	BranchRE  *regexp.Regexp
+	Name     string
+	BranchRE *regexp.Regexp
 }
 
 func (p Project) cloneDir(dir string) (cloneDir string) {
@@ -99,14 +95,20 @@ func (p Project) workDir(dir, branch, suffix string) string {
 	return filepath.Join(dir, p.Name, subDir)
 }
 
+func (p Project) Organization() string {
+	return "GoogleCloudPlatform"
+}
+
+func (p Project) RepoName() string {
+	// p.Name == repo name for all examples so far.
+	return p.Name
+}
+
 func (p Project) RemoteURL() string {
 	if *gitPreferHTTPS {
-		return "https://" +
-			strings.TrimSuffix(
-				strings.TrimPrefix(strings.ReplaceAll(p.remoteURL, ":", "/"), "git@"),
-				".git")
+		return fmt.Sprintf("https://github.com/%s/%s", p.Organization(), p.RepoName())
 	}
-	return p.remoteURL
+	return fmt.Sprintf("git@github.com:%s/%s.git", p.Organization(), p.RepoName())
 }
 
 // WorkDir returns a new working directory.
